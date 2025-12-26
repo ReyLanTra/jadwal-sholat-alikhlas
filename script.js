@@ -92,7 +92,7 @@ async function loadData() {
   </td></tr>`;
 
   try {
-    const res = await fetch(`${year}.json`);
+    const res = await fetch(`public/kab-tegal/${year}.json`);
     
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}: File tidak ditemukan`);
