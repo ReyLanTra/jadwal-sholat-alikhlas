@@ -183,7 +183,7 @@ function displayPrayerTimes(monthData, month, year) {
       <td><div class="prayer-time">${formatTime(day.imsak)}</div></td>
       <td><div class="prayer-time">${formatTime(day.subuh)}</div></td>
       <td><div class="prayer-time">${formatTime(day.terbit)}</div></td>
-      <td><div class="prayer-time">${formatTime(day.dhuha || '-')}</div></td>
+      <td><div class="prayer-time">${formatTime(day.dhuha)}</div></td>
       <td><div class="prayer-time">${formatTime(day.dzuhur)}</div></td>
       <td><div class="prayer-time">${formatTime(day.ashar)}</div></td>
       <td><div class="prayer-time">${formatTime(day.maghrib)}</div></td>
