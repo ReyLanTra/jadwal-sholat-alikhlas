@@ -1,4 +1,4 @@
-# 🕌 **JADWAL SHOLAT AL-IKHLAS PEPEKUNDEN 🕌
+# 🕌 **JADWAL SHOLAT AL-IKHLAS PEKUNDEN** 🕌
 
 <div align="center">
 
