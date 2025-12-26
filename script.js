@@ -62,15 +62,15 @@ function updateClocks() {
 
   // WIB UTC+7 (Indonesia Barat)
   const wibTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-  clockWIB.innerHTML = `WIB: ${formatTime(wibTime)}<br><small>${formatDate(now)}</small>`;
+  clockWIB.innerHTML = `WIB: ${formatTime(wibTime)}<br><small>Indonesia Barat</small>`;
 
   // WITA UTC+8 (Indonesia Tengah)
   const witaTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-  clockWITA.innerHTML = `WITA: ${formatTime(witaTime)}`;
+  clockWITA.innerHTML = `WITA: ${formatTime(witaTime)}<br><small>Indonesia Tengah</small>`;
 
   // WIT UTC+9 (Indonesia Timur)
   const witTime = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  clockWIT.innerHTML = `WIT: ${formatTime(witTime)}`;
+  clockWIT.innerHTML = `WIT: ${formatTime(witTime)}<br><small>Indonesia Timur</small>`;
 
   // Update info tanggal
   updateDateInfo(now);
