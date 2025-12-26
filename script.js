@@ -50,17 +50,66 @@ function updateClocks() {
     return `${hours}:${minutes}:${seconds}`;
   };
 
+  // Format tanggal Indonesia
+  const formatDate = (date) => {
+    return date.toLocaleDateString('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
   // WIB UTC+7 (Indonesia Barat)
   const wibTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-  clockWIB.textContent = `WIB: ${formatTime(wibTime)}`;
+  clockWIB.innerHTML = `WIB: ${formatTime(wibTime)}<br><small>${formatDate(now)}</small>`;
 
   // WITA UTC+8 (Indonesia Tengah)
   const witaTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-  clockWITA.textContent = `WITA: ${formatTime(witaTime)}`;
+  clockWITA.innerHTML = `WITA: ${formatTime(witaTime)}`;
 
   // WIT UTC+9 (Indonesia Timur)
   const witTime = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  clockWIT.textContent = `WIT: ${formatTime(witTime)}`;
+  clockWIT.innerHTML = `WIT: ${formatTime(witTime)}`;
+
+  // Update info tanggal
+  updateDateInfo(now);
+}
+
+// ==========================
+// Info Tanggal
+// ==========================
+function updateDateInfo(date) {
+  let dateInfo = document.getElementById('dateInfo');
+  
+  if (!dateInfo) {
+    dateInfo = document.createElement('div');
+    dateInfo.id = 'dateInfo';
+    dateInfo.style.cssText = `
+      text-align: center;
+      margin: 5px 0 15px 0;
+      padding: 10px;
+      background: rgba(15, 59, 44, 0.6);
+      border-radius: 10px;
+      border: 1px solid rgba(212, 175, 55, 0.3);
+      font-size: 0.9rem;
+      color: var(--gold);
+      backdrop-filter: blur(5px);
+    `;
+    
+    const controls = document.querySelector('.controls');
+    if (controls) {
+      controls.appendChild(dateInfo);
+    }
+  }
+  
+  const options = { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  };
+  dateInfo.innerHTML = `📅 <strong>${date.toLocaleDateString('id-ID', options)}</strong>`;
 }
 
 // ==========================
@@ -80,28 +129,61 @@ yearSelect.value = today.getFullYear();
 monthSelect.value = today.getMonth() + 1;
 
 // ==========================
-// Load Data Jadwal Sholat (DIPERBAIKI)
+// Load Data Jadwal Sholat - FIXED VERSION
 // ==========================
 async function loadData() {
   const year = yearSelect.value;
   const month = monthSelect.value;
   
-  body.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:20px;">
+  console.log(`📅 Memuat jadwal: ${year}-${month}`);
+  
+  body.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px;">
     <div class="loader" style="margin: 0 auto 10px;"></div>
     Memuat data jadwal sholat...
   </td></tr>`;
 
   try {
-    const res = await fetch(`public/kab-tegal/${year}.json`);
+    // Coba beberapa sumber data
+    const possiblePaths = [
+      `https://raw.githubusercontent.com/ReyLanTra/Jadwal-Sholat/main/${year}.json`,
+      `/${year}.json`,
+      `./${year}.json`,
+      `public/kab-tegal/${year}.json`
+    ];
     
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}: File tidak ditemukan`);
+    let json = null;
+    let lastError = null;
+    
+    for (const path of possiblePaths) {
+      try {
+        console.log(`🔍 Mencoba path: ${path}`);
+        const res = await fetch(path);
+        
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        
+        const text = await res.text();
+        // Cek jika response adalah HTML
+        if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<')) {
+          throw new Error('Response is HTML, not JSON');
+        }
+        
+        json = JSON.parse(text);
+        console.log(`✅ Berhasil load dari: ${path}`);
+        break;
+        
+      } catch (err) {
+        lastError = err;
+        console.log(`❌ Gagal dari ${path}:`, err.message);
+      }
     }
     
-    const json = await res.json();
-    console.log('📊 JSON loaded:', json);
+    if (!json) {
+      throw new Error(`Tidak bisa menemukan file ${year}.json`);
+    }
 
-    // PERBAIKAN: Struktur JSON kamu adalah {"time": {"1": [...], "2": [...], ...}}
+    // Validasi struktur JSON
     if (!json.time || typeof json.time !== 'object') {
       throw new Error('Format JSON tidak valid: properti "time" tidak ditemukan');
     }
@@ -110,24 +192,21 @@ async function loadData() {
     const monthData = json.time[month];
     
     if (!monthData || !Array.isArray(monthData)) {
-      body.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px;">Data untuk bulan ini belum tersedia</td></tr>';
+      body.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;">Data untuk bulan ini belum tersedia</td></tr>';
       return;
     }
 
     // Tampilkan info lokasi
     showLocationInfo(json);
     
-    // Tampilkan data
+    // Tampilkan data dengan highlight FIXED
     displayPrayerTimes(monthData, month, year);
     
-    // Mulai countdown untuk adzan
-    startPrayerTimeCountdown(monthData);
-
-  } catch (e) {
-    console.error('❌ Error loading data:', e);
-    body.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:40px; color:#ff6b6b;">
-      <h3>⚠️ Gagal memuat jadwal</h3>
-      <p>${e.message}</p>
+  } catch (error) {
+    console.error('❌ Error loading data:', error);
+    body.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:40px; color:#ff6b6b;">
+      <h4>⚠️ Gagal memuat jadwal</h4>
+      <p>${error.message}</p>
       <small>Pastikan file ${year}.json tersedia dan formatnya benar.</small>
       <br>
       <button onclick="loadData()" style="margin-top:15px; padding:8px 16px; background:var(--gold); border:none; border-radius:5px; color:white; cursor:pointer;">
@@ -138,64 +217,100 @@ async function loadData() {
 }
 
 // ==========================
-// Tampilkan Data Jadwal
+// Tampilkan Data Jadwal - FIXED HIGHLIGHT
 // ==========================
 function displayPrayerTimes(monthData, month, year) {
   body.innerHTML = '';
   
-  const today = new Date();
-  const currentDate = today.getDate();
-  const currentMonth = today.getMonth() + 1;
-  const currentYear = today.getFullYear();
+  // PAKAI REAL-TIME DATE SETIAP KALI
+  const now = new Date();
+  console.log("🕒 REAL TIME CHECK:", {
+    date: now.getDate(),
+    month: now.getMonth() + 1,
+    year: now.getFullYear(),
+    full: now.toLocaleDateString('id-ID')
+  });
+  
+  // Log untuk debugging
+  console.log(`📊 Processing ${monthData.length} days of data`);
   
   monthData.forEach((day, index) => {
-    const tr = document.createElement('tr');
-    tr.style.animationDelay = `${index * 0.05}s`;
-
-    // Parse tanggal dari string "Rabu, 01/01/2025"
+    // Parse tanggal dari data JSON
     let dayNumber = 0;
+    let parsedMonth = 0;
+    let parsedYear = 0;
+    
     try {
-      const dateStr = day.tanggal;
-      if (dateStr) {
-        // Ambil bagian tanggal: "01/01/2025"
-        const datePart = dateStr.split(', ')[1];
-        if (datePart) {
-          const [dayStr, monthStr, yearStr] = datePart.split('/');
-          dayNumber = parseInt(dayStr, 10);
+      if (day.tanggal && typeof day.tanggal === 'string') {
+        // Format: "Rabu, 26/12/2025"
+        const parts = day.tanggal.split(', ');
+        if (parts.length > 1) {
+          const datePart = parts[1]; // "26/12/2025"
+          const [d, m, y] = datePart.split('/').map(Number);
+          dayNumber = d;
+          parsedMonth = m;
+          parsedYear = y;
         }
       }
     } catch (e) {
-      console.warn('Error parsing date:', e);
+      console.warn(`⚠️ Error parsing date for index ${index}:`, e);
     }
-
-    // Highlight hari ini
-    if (dayNumber === currentDate && 
-        parseInt(month) === currentMonth && 
-        parseInt(year) === currentYear) {
+    
+    // Fallback: gunakan index + 1 jika parsing gagal
+    if (dayNumber === 0 || isNaN(dayNumber)) {
+      dayNumber = index + 1;
+    }
+    
+    // FIXED HIGHLIGHT LOGIC: Pakai REAL-TIME date comparison
+    const isToday = (
+      dayNumber === now.getDate() && 
+      parsedMonth === (now.getMonth() + 1) && 
+      parsedYear === now.getFullYear()
+    );
+    
+    // Debug log untuk highlight
+    if (isToday) {
+      console.log(`🎯 HIGHLIGHT FOUND: Day ${dayNumber} is TODAY!`);
+    }
+    
+    const tr = document.createElement('tr');
+    
+    // Hanya tambah class .today jika benar-benar hari ini
+    if (isToday) {
       tr.classList.add('today');
     }
-
-    // Format waktu dengan safety check
-    const formatTime = (time) => time || '--:--';
     
+    // Clean waktu dari karakter aneh
+    const cleanTime = (time) => {
+      if (!time || time === 'undefined' || time === 'null') {
+        return '--:--';
+      }
+      return time.toString()
+        .replace(/[Il]/gi, '1')  // I atau l → 1
+        .replace(/[Oo]/g, '0')   // O atau o → 0
+        .trim();
+    };
+    
+    // BUAT SEMUA TANGGAL TAMPIL (tidak ada yang hidden)
     tr.innerHTML = `
-      <td>${dayNumber || '?'}</td>
-      <td><div class="prayer-time">${formatTime(day.imsak)}</div></td>
-      <td><div class="prayer-time">${formatTime(day.subuh)}</div></td>
-      <td><div class="prayer-time">${formatTime(day.terbit)}</div></td>
-      <td><div class="prayer-time">${formatTime(day.dhuha)}</div></td>
-      <td><div class="prayer-time">${formatTime(day.dzuhur)}</div></td>
-      <td><div class="prayer-time">${formatTime(day.ashar)}</div></td>
-      <td><div class="prayer-time">${formatTime(day.maghrib)}</div></td>
-      <td><div class="prayer-time">${formatTime(day.isya)}</div></td>
+      <td>${dayNumber}</td>
+      <td><div class="prayer-time">${cleanTime(day.imsak)}</div></td>
+      <td><div class="prayer-time">${cleanTime(day.subuh)}</div></td>
+      <td><div class="prayer-time">${cleanTime(day.terbit)}</div></td>
+      <td><div class="prayer-time">${cleanTime(day.dzuhur)}</div></td>
+      <td><div class="prayer-time">${cleanTime(day.ashar)}</div></td>
+      <td><div class="prayer-time">${cleanTime(day.maghrib)}</div></td>
+      <td><div class="prayer-time">${cleanTime(day.isya)}</div></td>
     `;
     
     body.appendChild(tr);
   });
-
-  // Jika tidak ada data
-  if (monthData.length === 0) {
-    body.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px;">Tidak ada data untuk bulan ini</td></tr>';
+  
+  // Validasi: semua tanggal harus tampil
+  console.log(`✅ Displayed ${body.children.length} rows`);
+  
+  if (monthData.length !== body.children.length) {
+    console.error(`❌ DATA LOSS: ${monthData.length} input → ${body.children.length} output`);
   }
 }
 
@@ -245,186 +360,6 @@ function showLocationInfo(json) {
 }
 
 // ==========================
-// Countdown Menuju Waktu Sholat
-// ==========================
-let countdownInterval = null;
-
-function startPrayerTimeCountdown(monthData) {
-  // Hentikan countdown sebelumnya jika ada
-  if (countdownInterval) {
-    clearInterval(countdownInterval);
-  }
-  
-  countdownInterval = setInterval(() => {
-    const now = new Date();
-    const currentDate = now.getDate();
-    
-    // Cari data untuk hari ini
-    const todayData = monthData.find(day => {
-      try {
-        const dateStr = day.tanggal;
-        if (dateStr) {
-          const datePart = dateStr.split(', ')[1];
-          if (datePart) {
-            const [dayStr] = datePart.split('/');
-            return parseInt(dayStr, 10) === currentDate;
-          }
-        }
-        return false;
-      } catch (e) {
-        return false;
-      }
-    });
-    
-    if (!todayData) return;
-    
-    // Cek setiap waktu sholat
-    const prayerTimes = [
-      { name: 'Imsak', time: todayData.imsak, audio: 'imsak' },
-      { name: 'Subuh', time: todayData.subuh, audio: 'subuh' },
-      { name: 'Dzuhur', time: todayData.dzuhur, audio: 'dzuhur' },
-      { name: 'Ashar', time: todayData.ashar, audio: 'ashar' },
-      { name: 'Maghrib', time: todayData.maghrib, audio: 'maghrib' },
-      { name: 'Isya', time: todayData.isya, audio: 'isya' }
-    ];
-    
-    prayerTimes.forEach(prayer => {
-      if (!prayer.time) return;
-      
-      const [hours, minutes] = prayer.time.split(':').map(Number);
-      const prayerTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
-      const timeDiff = prayerTime - now;
-      
-      // Jika kurang dari 1 menit dan belum lewat
-      if (timeDiff > 0 && timeDiff < 60000) {
-        // Cek apakah sudah pernah memainkan audio untuk sholat ini hari ini
-        const lastPlayedKey = `lastPlayed_${prayer.name}_${now.toDateString()}`;
-        const lastPlayed = localStorage.getItem(lastPlayedKey);
-        
-        if (!lastPlayed) {
-          playAdzan(prayer.audio);
-          showNotification(prayer.name);
-          localStorage.setItem(lastPlayedKey, 'true');
-        }
-      }
-      
-      // Update countdown display (opsional)
-      updateCountdownDisplay(prayer.name, timeDiff);
-    });
-    
-  }, 1000); // Update setiap detik
-}
-
-function updateCountdownDisplay(prayerName, timeDiff) {
-  // Optional: Tambahkan elemen untuk menampilkan countdown di UI
-  if (timeDiff > 0 && timeDiff < 3600000) { // Hanya tampilkan jika < 1 jam
-    const minutes = Math.floor((timeDiff % 3600000) / 60000);
-    const seconds = Math.floor((timeDiff % 60000) / 1000);
-    
-    // Cari atau buat elemen countdown
-    let countdownEl = document.getElementById(`countdown-${prayerName.toLowerCase()}`);
-    if (!countdownEl) {
-      countdownEl = document.createElement('div');
-      countdownEl.id = `countdown-${prayerName.toLowerCase()}`;
-      countdownEl.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        background: rgba(212, 175, 55, 0.9);
-        color: white;
-        padding: 10px 15px;
-        border-radius: 8px;
-        font-size: 0.9rem;
-        z-index: 1000;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-      `;
-      document.body.appendChild(countdownEl);
-    }
-    
-    countdownEl.textContent = `${prayerName}: ${minutes}m ${seconds}s`;
-    
-    // Hapus setelah waktu habis
-    if (timeDiff <= 0) {
-      setTimeout(() => {
-        if (countdownEl.parentNode) {
-          countdownEl.parentNode.removeChild(countdownEl);
-        }
-      }, 5000);
-    }
-  }
-}
-
-// ==========================
-// Audio Adzan dengan Fallback
-// ==========================
-function playAdzan(prayerType) {
-  try {
-    let audioFile;
-    
-    if (prayerType === 'subuh') {
-      audioFile = 'assets/adzan-subuh.mp3';
-    } else {
-      audioFile = 'assets/adzan.mp3';
-    }
-    
-    const audio = new Audio(audioFile);
-    audio.volume = 0.7;
-    
-    audio.play().catch(e => {
-      console.log('Audio play error:', e);
-      // Fallback: Gunakan Web Audio API jika ada error
-      try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.value = 440;
-        oscillator.type = 'sine';
-        gainNode.gain.value = 0.1;
-        
-        oscillator.start();
-        setTimeout(() => oscillator.stop(), 2000);
-      } catch (err) {
-        console.log('Web Audio API juga error:', err);
-      }
-    });
-    
-  } catch (error) {
-    console.error('Error playing adzan:', error);
-  }
-}
-
-// ==========================
-// Browser Notification
-// ==========================
-function showNotification(prayerName) {
-  if (!("Notification" in window)) {
-    console.log("Browser tidak mendukung notifications");
-    return;
-  }
-  
-  if (Notification.permission === "granted") {
-    new Notification(`Waktu Sholat ${prayerName}`, {
-      body: `Waktu sholat ${prayerName} telah tiba. Mari tunaikan sholat berjamaah.`,
-      icon: 'assets/logo.png',
-      tag: `sholat-${prayerName}`
-    });
-  } else if (Notification.permission !== "denied") {
-    Notification.requestPermission().then(permission => {
-      if (permission === "granted") {
-        new Notification(`Waktu Sholat ${prayerName}`, {
-          body: `Waktu sholat ${prayerName} telah tiba.`,
-          icon: 'assets/logo.png'
-        });
-      }
-    });
-  }
-}
-
-// ==========================
 // Hover & Parallax Effects
 // ==========================
 function addHoverEffects() {
@@ -433,8 +368,13 @@ function addHoverEffects() {
       el.addEventListener('focus', () => el.style.transform = 'translateY(-2px)');
       el.addEventListener('blur', () => el.style.transform = 'translateY(0)');
     } else {
-      el.addEventListener('mouseenter', () => el.style.transform = 'translateY(-3px)');
-      el.addEventListener('mouseleave', () => el.style.transform = 'translateY(0)');
+      el.addEventListener('mouseenter', () => {
+        el.style.transform = 'translateY(-3px)';
+        el.style.transition = 'all 0.3s ease';
+      });
+      el.addEventListener('mouseleave', () => {
+        el.style.transform = 'translateY(0)';
+      });
     }
   });
 }
@@ -450,16 +390,99 @@ function initParallax() {
 }
 
 // ==========================
+// Auto-refresh pada perubahan tanggal
+// ==========================
+let lastCheckedDate = new Date().getDate();
+
+function checkForDateChange() {
+  const currentDate = new Date().getDate();
+  
+  if (currentDate !== lastCheckedDate) {
+    console.log(`📅 Tanggal berubah: ${lastCheckedDate} → ${currentDate}`);
+    lastCheckedDate = currentDate;
+    
+    // Tampilkan notifikasi
+    showDateChangeNotification(currentDate);
+    
+    // Reload data setelah 1 detik
+    setTimeout(() => {
+      console.log("🔄 Reloading data karena tanggal berubah...");
+      loadData();
+    }, 1000);
+  }
+}
+
+function showDateChangeNotification(newDate) {
+  // Hapus notifikasi sebelumnya
+  const oldNotif = document.querySelector('.date-change-notif');
+  if (oldNotif) oldNotif.remove();
+  
+  const notification = document.createElement('div');
+  notification.className = 'date-change-notif';
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, var(--gold), #ffd700);
+    color: var(--dark);
+    padding: 12px 20px;
+    border-radius: 10px;
+    z-index: 10000;
+    box-shadow: 0 5px 20px rgba(212, 175, 55, 0.4);
+    animation: slideIn 0.5s ease;
+    font-weight: 600;
+    max-width: 300px;
+  `;
+  
+  notification.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <span style="font-size: 1.2rem;">📅</span>
+      <div>
+        <strong>Tanggal Diperbarui!</strong><br>
+        <small>Sekarang: <strong>${newDate} ${new Date().toLocaleDateString('id-ID', {month: 'long', year: 'numeric'})}</strong></small>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(notification);
+  
+  // Hapus setelah 4 detik
+  setTimeout(() => {
+    notification.style.animation = 'slideOut 0.5s ease';
+    setTimeout(() => notification.remove(), 500);
+  }, 4000);
+}
+
+// Tambah animasi untuk notifikasi
+const notificationStyles = document.createElement('style');
+notificationStyles.textContent = `
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+  }
+`;
+document.head.appendChild(notificationStyles);
+
+// ==========================
 // Responsive Helper
 // ==========================
 function handleResponsive() {
   const isMobile = window.innerWidth < 768;
   
-  // Sesuaikan jumlah kolom di mobile
+  // Sesuaikan padding dan font size untuk mobile
   if (isMobile) {
     document.querySelectorAll('.prayer-time').forEach(el => {
       el.style.fontSize = '0.8rem';
-      el.style.padding = '2px 4px';
+      el.style.padding = '3px 5px';
+    });
+    
+    document.querySelectorAll('thead th, tbody td').forEach(el => {
+      el.style.padding = '8px 4px';
+      el.style.fontSize = '0.85rem';
     });
   }
   
@@ -468,54 +491,54 @@ function handleResponsive() {
   if (clockContainer) {
     if (isMobile) {
       clockContainer.style.gap = '8px';
+      clockContainer.style.flexDirection = 'column';
     } else {
       clockContainer.style.gap = '15px';
+      clockContainer.style.flexDirection = 'row';
     }
   }
 }
 
 // ==========================
-// Inisialisasi
+// Inisialisasi Utama
 // ==========================
 function init() {
   console.log('🕌 Initializing Jadwal Sholat App...');
   
+  // Inisialisasi komponen
   initParticles();
   updateClocks();
-  setInterval(updateClocks, 1000);
-  loadData();
   addHoverEffects();
   initParallax();
   handleResponsive();
+  loadData(); // Load data pertama kali
   
-  // Event listeners untuk responsive
-  window.addEventListener('resize', handleResponsive);
+  // Setup interval
+  setInterval(updateClocks, 1000);
+  setInterval(checkForDateChange, 30000); // Cek perubahan tanggal setiap 30 detik
   
-  // Event listeners untuk filter
+  // Event listeners
   yearSelect.addEventListener('change', loadData);
   monthSelect.addEventListener('change', loadData);
+  window.addEventListener('resize', handleResponsive);
   
-  // Cleanup function
-  window.addEventListener('beforeunload', () => {
-    if (countdownInterval) {
-      clearInterval(countdownInterval);
-    }
-  });
+  // Force check highlight saat page load
+  console.log("Page loaded on:", new Date().toLocaleString());
 }
 
-// Jalankan setelah DOM siap
+// ==========================
+// Jalankan Aplikasi
+// ==========================
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
   init();
 }
 
-// Ekspor fungsi untuk debugging (opsional)
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    loadData,
-    updateClocks,
-    playAdzan,
-    showNotification
-  };
-}
+// Ekspor untuk debugging
+window.JadwalSholatApp = {
+  loadData,
+  updateClocks,
+  checkForDateChange,
+  displayPrayerTimes
+};
