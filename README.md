@@ -127,6 +127,7 @@
 
 ### **🖥️ Tampilan Desktop Premium**
 ![Desktop View](https://i.ibb.co/Xx0wPDjV/bandicam-2025-12-27-04-44-35-844.jpg)
+![Desktop View](https://i.ibb.co/bjvhNdFd/bandicam-2025-12-27-04-45-24-478.jpg)
 
 ### **📱 Tampilan Mobile Elegan**
 ![Mobile View](https://via.placeholder.com/400x800/0f5132/ffffff?text=Mobile+View+Coming+Soon&style=for-the-badge)
